@@ -2,6 +2,8 @@
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
+(defparameter *math-render-fn* nil)
+
 (defun markup-string (string)
   (loop
      with length = (length string)
@@ -51,7 +53,7 @@
   (write-string "<" stream)
   (write-string tag stream)
   (write-string ">" stream)
-  (render-markup-to-stream element stream)
+  (%render-markup-to-stream element stream)
   (write-string "</" stream)
   (write-string tag stream)
   (write-string ">" stream))
@@ -59,7 +61,7 @@
 (defun render-math (element stream)
   (format stream "$$~a$$" element))
 
-(defun render-markup-to-stream (content stream &key (math-render-fn #'render-math))
+(defun %render-markup-to-stream (content stream)
   (if (stringp content)
       (escape-string content stream)
       ;; ELSE: Not a string, so it will be treated as a list
@@ -71,8 +73,8 @@
                   (:bold (render-element-with-content "b" (cdr element) stream))
                   (:italics (render-element-with-content "i" (cdr element) stream))
                   (:code (render-element-with-content "code" (cdr element) stream))
-                  (:math (funcall math-render-fn (cdr element) stream))))))))
+                  (:math (funcall *math-render-fn* (cdr element) stream))))))))
 
-(defun render-markup-to-string (content)
-  (with-output-to-string (s)
-    (render-markup-to-stream content s)))
+(defun render-markup-to-stream (content stream &key (math-render-fn #'render-math))
+  (let ((*math-render-fn* math-render-fn))
+    (%render-markup-to-stream content stream)))

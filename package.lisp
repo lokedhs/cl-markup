@@ -4,4 +4,5 @@
    #:render-markup-to-stream
    #:render-markup-to-string
    #:markup-string
-   #:markup-paragraphs))
+   #:markup-paragraphs
+   ))
