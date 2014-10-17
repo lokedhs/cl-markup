@@ -3,36 +3,65 @@
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
 (defparameter *math-render-fn* nil)
+(defparameter *inline-math-render-fn* nil)
 
-(defun markup-string (string)
-  (loop
-     with length = (length string)
-     with start = 0
-     while (< start length)
-     append (multiple-value-bind (match-start match-end reg-starts reg-ends)
-                (cl-ppcre:scan "([*_`]|\\$\\$)(.+?)\\1" string :start start)
-              (if match-start
-                  ;; Some highlighted text was found
-                  (let* ((type (subseq string (aref reg-starts 0) (aref reg-ends 0)))
-                         (highlight (cons (string-case:string-case (type)
-                                            ("*" :bold)
-                                            ("_" :italics)
-                                            ("`" :code)
-                                            ("$$" :math))
-                                          (subseq string (aref reg-starts 1) (aref reg-ends 1)))))
-                    (let ((old-start start))
+(defun markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
+  (flet ((markup-string (s)
+           (if plain-string-markup-fn
+               (funcall plain-string-markup-fn s)
+               (list s))))
+    (loop
+       with length = (length string)
+       with start = 0
+       while (< start length)
+       append (multiple-value-bind (match-start match-end reg-starts reg-ends)
+                  (cl-ppcre:scan regexp string :start start)
+                (if match-start
+                    ;; Some highlighted text was found
+                    (let* ((highlight (funcall callback reg-starts reg-ends))
+                           (old-start start))
                       (setq start match-end)
                       (if (> match-start old-start)
                           ;; There is some unmatched text before the match
-                          (list (subseq string old-start match-start)
-                                highlight)
+                          (append (markup-string (subseq string old-start match-start))
+                                  (list highlight))
                           ;; ELSE: The match is at the beginning of the string
-                          (list highlight))))
-                  ;; ELSE: No match, copy the last part of the text and finish the loop
-                  (progn
-                    (let ((old-start start))
-                      (setq start length)
-                      (list (subseq string old-start))))))))
+                          (list highlight)))
+                    ;; ELSE: No match, copy the last part of the text and finish the loop
+                    (progn
+                      (let ((old-start start))
+                        (setq start length)
+                        (markup-string (subseq string old-start)))))))))
+
+(defun markup-highlight (string)
+  (markup-from-regexp "([*_`])(.+?)\\1" string
+                      #'(lambda (reg-starts reg-ends)
+                          (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
+                            (cons (string-case:string-case (type)
+                                    ("*" :bold)
+                                    ("_" :italics)
+                                    ("`" :code))
+                                  (subseq string (aref reg-starts 1) (aref reg-ends 1)))))))
+
+(defun markup-maths (string)
+  ;; Maths needs to be extracted before anything else, since it can
+  ;; contain a mix of pretty much every other character, and we don't
+  ;; want that to mess up any other highlighting.
+  (markup-from-regexp "((?:\\$\\$[^$]+?\\$\\$)|(?:\\\\\\(.+?\\\\\\)))" string
+                      #'(lambda (reg-starts reg-ends)
+                          (let* ((start (aref reg-starts 0))
+                                 (end (aref reg-ends 0))
+                                 (c1 (aref string start)))
+                            (cond ((eql c1 #\$)
+                                   (cons :math (subseq string (+ start 2) (- end 2))))
+                                  ((eql c1 #\\)
+                                   (cons :inline-math (subseq string (+ start 2) (- end 2))))
+                                  (t
+                                   (error "Internal error, unexpected match. Probably broken regexp.")))))
+                      #'markup-highlight))
+
+(defun markup-string (string)
+  (markup-maths string))
 
 (defun markup-paragraphs (string)
   (loop
@@ -61,6 +90,9 @@
 (defun render-math (element stream)
   (format stream "$$~a$$" element))
 
+(defun render-inline-math (element stream)
+  (format stream "\(~a\)" element))
+
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
       (escape-string content stream)
@@ -68,13 +100,14 @@
       (dolist (element content)
         (etypecase element
           (string (escape-string element stream))
-          (cons (ecase (car element)
-                  (:paragraph (render-element-with-content "p" (cdr element) stream))
-                  (:bold (render-element-with-content "b" (cdr element) stream))
-                  (:italics (render-element-with-content "i" (cdr element) stream))
-                  (:code (render-element-with-content "code" (cdr element) stream))
-                  (:math (funcall *math-render-fn* (cdr element) stream))))))))
+          (cons (let ((v (cdr element)))
+                  (ecase (car element)
+                    (:paragraph   (render-element-with-content "p" v stream))
+                    (:bold        (render-element-with-content "b" v stream))
+                    (:italics     (render-element-with-content "i" v stream))
+                    (:code        (render-element-with-content "code" v stream))
+                    (:math        (render-math v stream))
+                    (:inline-math (render-inline-math v stream)))))))))
 
-(defun render-markup-to-stream (content stream &key (math-render-fn #'render-math))
-  (let ((*math-render-fn* math-render-fn))
-    (%render-markup-to-stream content stream)))
+(defun render-markup-to-stream (content stream)
+  (%render-markup-to-stream content stream))
