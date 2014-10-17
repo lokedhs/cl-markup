@@ -5,7 +5,7 @@
 (defparameter *math-render-fn* nil)
 (defparameter *inline-math-render-fn* nil)
 
-(defun markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
+(defun %markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
   (flet ((markup-string (s)
            (if plain-string-markup-fn
                (funcall plain-string-markup-fn s)
@@ -32,6 +32,10 @@
                       (let ((old-start start))
                         (setq start length)
                         (markup-string (subseq string old-start)))))))))
+
+(defmacro markup-from-regexp (regexp string callback &optional plain-string-markup-fn &environment env)
+  `(%markup-from-regexp ,(if (constantp regexp env) `(load-time-value ,regexp) regexp)
+                        ,string ,callback ,@(if plain-string-markup-fn (list plain-string-markup-fn))))
 
 (defun markup-highlight (string)
   (markup-from-regexp "([*_`])(.+?)\\1" string
