@@ -95,7 +95,7 @@
   (format stream "$$~a$$" element))
 
 (defun render-inline-math (element stream)
-  (format stream "\(~a\)" element))
+  (format stream "\\(~a\\)" element))
 
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
