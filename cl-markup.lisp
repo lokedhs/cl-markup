@@ -2,9 +2,6 @@
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
-(defparameter *math-render-fn* nil)
-(defparameter *inline-math-render-fn* nil)
-
 (defun %markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
   (flet ((markup-string (s)
            (if plain-string-markup-fn
