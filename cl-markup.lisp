@@ -51,7 +51,7 @@
   ;; Maths needs to be extracted before anything else, since it can
   ;; contain a mix of pretty much every other character, and we don't
   ;; want that to mess up any other highlighting.
-  (markup-from-regexp "((?:\\$\\$[^$]+?\\$\\$)|(?:\\\\\\(.+?\\\\\\)))" string
+  (markup-from-regexp "((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\)))" string
                       #'(lambda (reg-starts reg-ends)
                           (let* ((start (aref reg-starts 0))
                                  (end (aref reg-ends 0))
