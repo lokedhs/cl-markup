@@ -7,4 +7,6 @@
                :cl-ppcre
                :string-case)
   :components ((:file "package")
+               (:file "misc")
+               (:file "url")
                (:file "cl-markup")))

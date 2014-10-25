@@ -65,7 +65,14 @@
                       #'markup-highlight))
 
 (defun markup-string (string)
-  (markup-maths string))
+  (let ((result nil))
+    (process-regex-parts *url-pattern* string
+                         #'(lambda (reg-starts reg-ends)
+                             (push (list :url (subseq string (aref reg-starts 0) (aref reg-ends 0))) result))
+                         #'(lambda (start end)
+                             (dolist (v (markup-maths (subseq string start end)))
+                               (push v result))))
+    (reverse result)))
 
 (defun markup-paragraphs (string)
   (loop
@@ -97,6 +104,15 @@
 (defun render-inline-math (element stream)
   (format stream "\\(~a\\)" element))
 
+(defun render-url (element stream)
+  (let* ((url (first element))
+         (description (or (second element) url)))
+    (write-string "<a href=\"" stream)
+    (escape-string-minimal-plus-quotes url stream)
+    (write-string "\">")
+    (escape-string-minimal-plus-quotes description stream)
+    (write-string "</a>")))
+
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
       (escape-string content stream)
@@ -111,7 +127,8 @@
                     (:italics     (render-element-with-content "i" v stream))
                     (:code        (render-element-with-content "code" v stream))
                     (:math        (render-math v stream))
-                    (:inline-math (render-inline-math v stream)))))))))
+                    (:inline-math (render-inline-math v stream))
+                    (:url         (render-url v stream)))))))))
 
 (defun render-markup-to-stream (content stream)
   (%render-markup-to-stream content stream))
