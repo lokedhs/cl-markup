@@ -127,3 +127,7 @@
 
 (defun render-markup-to-stream (content stream)
   (%render-markup-to-stream content stream))
+
+(defun render-markup (content)
+  (with-output-to-string (s)
+    (%render-markup-to-stream content s)))
