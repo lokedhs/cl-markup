@@ -59,11 +59,18 @@
                                    (error "Internal error, unexpected match. Probably broken regexp.")))))
                       #'markup-highlight))
 
+(defun add-protocol-name-to-url (name)
+  (if (cl-ppcre:scan "^https?://" name)
+      name
+      (format nil "http://~a" name)))
+
 (defun markup-string (string)
   (let ((result nil))
     (process-regex-parts *url-pattern* string
                          #'(lambda (reg-starts reg-ends)
-                             (push (list :url (subseq string (aref reg-starts 0) (aref reg-ends 0))) result))
+                             (let* ((name (subseq string (aref reg-starts 0) (aref reg-ends 0)))
+                                    (url (add-protocol-name-to-url name)))
+                               (push (list :url url name) result)))
                          #'(lambda (start end)
                              (dolist (v (markup-maths (subseq string start end)))
                                (push v result))))
