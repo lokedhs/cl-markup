@@ -1,7 +1,5 @@
 (in-package #:cl-markup)
 
-(declaim (optimize (speed 0) (safety 3) (debug 3)))
-
 (defun process-regex-parts (regexp string match-fn no-match-fn)
   (loop
      with length = (length string)

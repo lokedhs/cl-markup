@@ -1,7 +1,5 @@
 (in-package #:cl-markup)
 
-(declaim (optimize (speed 0) (safety 3) (debug 3)))
-
 (defun %markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
   (flet ((markup-string (s)
            (if plain-string-markup-fn
@@ -106,9 +104,9 @@
          (description (or (second element) url)))
     (write-string "<a href=\"" stream)
     (escape-string-minimal-plus-quotes url stream)
-    (write-string "\">")
+    (write-string "\">" stream)
     (escape-string-minimal-plus-quotes description stream)
-    (write-string "</a>")))
+    (write-string "</a>" stream)))
 
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
