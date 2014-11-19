@@ -5,7 +5,8 @@
   :serial t
   :depends-on (:alexandria
                :cl-ppcre
-               :string-case)
+               :string-case
+               :colorize)
   :components ((:file "package")
                (:file "misc")
                (:file "url")
