@@ -76,11 +76,70 @@
                                (push v result))))
     (reverse result)))
 
-(defun markup-paragraphs (string)
+(defun markup-paragraphs-inner (string)
   (loop
      for v in (cl-ppcre:split "\\n{2,}" string)
      when (plusp (length v))
      collect (cons :paragraph (markup-string v))))
+
+(defun trim-blanks-and-newlines (s)
+  (string-trim #.(format nil " ~c~c" #\Newline #\Return) s))
+
+(defmacro when-trimmed-not-empty ((sym string) &body body)
+  (let ((trimmed (gensym)))
+    `(let ((,trimmed (trim-blanks-and-newlines ,string)))
+       (when (plusp (length ,trimmed))
+         (let ((,sym ,trimmed))
+           ,@body)))))
+
+(defun markup-codeblocks (string)
+  (loop
+     with result = nil
+     with state = :normal
+     with current-language = nil
+     with length = (length string)
+     with pos = 0
+     while (< pos length)
+     if (eq state :normal)
+     do (multiple-value-bind (start end reg-starts reg-ends)
+            (cl-ppcre:scan "(?ms)^```[ ]*([^\\n\\r ]*)[ ]*$" string :start pos)
+          (if start
+              (progn
+                (when (> start pos)
+                  (when-trimmed-not-empty (trimmed (subseq string pos start))
+                    (push trimmed result)))
+                (setq state :code)
+                (let ((s (aref reg-starts 0))
+                      (e (aref reg-ends 0)))
+                  (setq current-language (if (> e s) (subseq string s e) nil)))
+                (setq pos end))
+              (progn
+                (when-trimmed-not-empty (trimmed (subseq string pos length))
+                  (push trimmed result))
+                (setq pos length))))
+     else if (eq state :code)
+     do (multiple-value-bind (start end)
+            (cl-ppcre:scan "(?ms)^```[ ]*$" string :start pos)
+          (if start
+              (progn
+                (when (> start pos)
+                  (when-trimmed-not-empty (trimmed (subseq string pos start))
+                    (push (list (list :code-block current-language trimmed)) result)))
+                (setq state :normal)
+                (setq current-language nil)
+                (setq pos end))
+              (progn
+                (when-trimmed-not-empty (trimmed (subseq string pos length))
+                  (push trimmed result))
+                (setq pos length))))
+     finally (return (reverse result))))
+
+(defun markup-paragraphs (string)
+  (loop
+     for v in (markup-codeblocks string)
+     append (if (stringp v)
+                (markup-paragraphs-inner v)
+                v)))
 
 (defun escape-string (string stream)
   (loop
@@ -115,6 +174,11 @@
     (escape-string-minimal-plus-quotes description stream)
     (write-string "</a>" stream)))
 
+(defun render-codeblock (element stream)
+  (write-string "<pre>" stream)
+  (write-string (second element) stream)
+  (write-string "</pre>" stream))
+
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
       (escape-string content stream)
@@ -130,7 +194,8 @@
                     (:code        (render-element-with-content "code" v stream))
                     (:math        (render-math v stream))
                     (:inline-math (render-inline-math v stream))
-                    (:url         (render-url v stream)))))))))
+                    (:url         (render-url v stream))
+                    (:code-block  (render-codeblock v stream)))))))))
 
 (defun render-markup-to-stream (content stream)
   (%render-markup-to-stream content stream))
