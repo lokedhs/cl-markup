@@ -197,7 +197,7 @@
         (progn
           (write-string "<pre class=\"highlighted-code\">" stream)
           (write-string (colorize:html-colorization type (second element)) stream)
-          (write-string "</pre"))
+          (write-string "</pre>"))
         (progn
           (write-string "<pre>" stream)
           (write-string (second element) stream)
