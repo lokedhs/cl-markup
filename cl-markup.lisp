@@ -193,15 +193,11 @@
                                            ("diff" :diff)
                                            ("webkit" :webkit)
                                            (t nil)))))
-    (if type
-        (progn
           (write-string "<pre class=\"highlighted-code\">" stream)
-          (write-string (colorize:html-colorization type (second element)) stream)
-          (write-string "</pre>" stream))
-        (progn
-          (write-string "<pre>" stream)
-          (write-string (second element) stream)
-          (write-string "</pre>" stream)))))
+          (if type
+              (write-string (colorize:html-colorization type (second element)) stream)
+              (write-string (second element) stream))
+          (write-string "</pre>" stream)))
 
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
