@@ -209,7 +209,7 @@
           (write-string "</pre>" stream)))
 
 (defun render-newline (stream)
-  (write-string "&br;" stream))
+  (write-string "<br>" stream))
 
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
