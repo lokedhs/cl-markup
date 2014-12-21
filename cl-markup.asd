@@ -6,7 +6,8 @@
   :depends-on (:alexandria
                :cl-ppcre
                :string-case
-               :colorize)
+               :colorize
+               :split-sequence)
   :components ((:file "package")
                (:file "misc")
                (:file "url")

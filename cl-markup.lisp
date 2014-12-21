@@ -64,23 +64,32 @@
       name
       (format nil "http://~a" name)))
 
-(defun markup-string (string)
+(defun markup-string (string &key allow-nl)
   (let ((result nil))
-    (process-regex-parts *url-pattern* string
-                         #'(lambda (reg-starts reg-ends)
-                             (let* ((name (subseq string (aref reg-starts 0) (aref reg-ends 0)))
-                                    (url (add-protocol-name-to-url name)))
-                               (push (list :url url name) result)))
-                         #'(lambda (start end)
-                             (dolist (v (markup-maths (subseq string start end)))
-                               (push v result))))
-    (reverse result)))
+    (labels ((process-string (s)
+               (process-regex-parts *url-pattern* s
+                             #'(lambda (reg-starts reg-ends)
+                                 (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
+                                        (url (add-protocol-name-to-url name)))
+                                   (push (list :url url name) result)))
+                             #'(lambda (start end)
+                                 (dolist (v (markup-maths (subseq s start end)))
+                                   (push v result))))))
+      (if allow-nl
+          (loop
+             for line in (split-sequence:split-sequence #\Newline string)
+             for first = t then nil
+             unless first
+             do (push '(:newline) result)
+             do (process-string line))
+          (process-string string))
+      (reverse result))))
 
-(defun markup-paragraphs-inner (string)
+(defun markup-paragraphs-inner (string &key allow-nl)
   (loop
      for v in (cl-ppcre:split "\\n{2,}" string)
      when (plusp (length v))
-     collect (cons :paragraph (markup-string v))))
+     collect (cons :paragraph (markup-string v :allow-nl allow-nl))))
 
 (defun trim-blanks-and-newlines (s)
   (string-trim #.(format nil " ~c~c" #\Newline #\Return) s))
@@ -134,11 +143,11 @@
                 (setq pos length))))
      finally (return (reverse result))))
 
-(defun markup-paragraphs (string)
+(defun markup-paragraphs (string &key allow-nl)
   (loop
      for v in (markup-codeblocks string)
      append (if (stringp v)
-                (markup-paragraphs-inner v)
+                (markup-paragraphs-inner v :allow-nl allow-nl)
                 v)))
 
 (defun escape-string (string stream)
@@ -199,6 +208,9 @@
               (write-string (second element) stream))
           (write-string "</pre>" stream)))
 
+(defun render-newline (stream)
+  (write-string "&br;" stream))
+
 (defun %render-markup-to-stream (content stream)
   (if (stringp content)
       (escape-string content stream)
@@ -215,7 +227,8 @@
                     (:math        (render-math v stream))
                     (:inline-math (render-inline-math v stream))
                     (:url         (render-url v stream))
-                    (:code-block  (render-codeblock v stream)))))))))
+                    (:code-block  (render-codeblock v stream))
+                    (:newline     (render-newline stream)))))))))
 
 (defun render-markup-to-stream (content stream)
   (%render-markup-to-stream content stream))
