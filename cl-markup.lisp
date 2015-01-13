@@ -38,15 +38,14 @@
                           (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
                             (cons (string-case:string-case (type)
                                     ("*" :bold)
-                                    ("_" :italics)
-                                    ("`" :code))
+                                    ("_" :italics))
                                   (subseq string (aref reg-starts 1) (aref reg-ends 1)))))))
 
 (defun markup-maths (string)
   ;; Maths needs to be extracted before anything else, since it can
   ;; contain a mix of pretty much every other character, and we don't
   ;; want that to mess up any other highlighting.
-  (markup-from-regexp "((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\)))" string
+  (markup-from-regexp "((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\))|(?:`.+?`))" string
                       #'(lambda (reg-starts reg-ends)
                           (let* ((start (aref reg-starts 0))
                                  (end (aref reg-ends 0))
@@ -55,6 +54,8 @@
                                    (cons :math (subseq string (+ start 2) (- end 2))))
                                   ((eql c1 #\\)
                                    (cons :inline-math (subseq string (+ start 2) (- end 2))))
+                                  ((eql c1 #\`)
+                                   (cons :code (subseq string (+ start 1) (- end 1))))
                                   (t
                                    (error "Internal error, unexpected match. Probably broken regexp.")))))
                       #'markup-highlight))
