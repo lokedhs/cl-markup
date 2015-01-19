@@ -26,7 +26,8 @@
         ;; nothing to do, just return STRING
         (write-sequence string s)
         ;; otherwise, process the string
-        (loop with len = (length string)
+        (loop
+           with len = (length string)
            for old-pos = 0 then (1+ pos)
            for pos = first-pos
            then (position-if test string :start old-pos)
