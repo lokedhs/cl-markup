@@ -206,7 +206,7 @@
           (write-string "<pre class=\"highlighted-code\">" stream)
           (if type
               (write-string (colorize:html-colorization type (second element)) stream)
-              (write-string (second element) stream))
+              (escape-string-minimal-plus-quotes (second element) stream))
           (write-string "</pre>" stream)))
 
 (defun render-newline (stream)
