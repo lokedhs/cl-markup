@@ -1,5 +1,9 @@
 (in-package #:cl-markup)
 
+(defvar *custom-parser-1* nil)
+(defvar *custom-parser-2* nil)
+(defvar *custom-html-renderer* nil)
+
 (defun %markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
   (flet ((markup-string (s)
            (if plain-string-markup-fn
@@ -41,6 +45,11 @@
                                     ("_" :italics))
                                   (subseq string (aref reg-starts 1) (aref reg-ends 1)))))))
 
+(defun markup-custom-2 (string)
+  (if *custom-parser-2*
+      (funcall *custom-parser-2* string #'markup-highlight)
+      (markup-highlight string)))
+
 (defun markup-maths (string)
   ;; Maths needs to be extracted before anything else, since it can
   ;; contain a mix of pretty much every other character, and we don't
@@ -58,7 +67,12 @@
                                    (cons :code (subseq string (+ start 1) (- end 1))))
                                   (t
                                    (error "Internal error, unexpected match. Probably broken regexp.")))))
-                      #'markup-highlight))
+                      #'markup-custom-2))
+
+(defun markup-custom-1 (string)
+  (if *custom-parser-1*
+      (funcall *custom-parser-1* string #'markup-maths)
+      (markup-maths string)))
 
 (defun add-protocol-name-to-url (name)
   (if (cl-ppcre:scan "^https?://" name)
@@ -69,13 +83,13 @@
   (let ((result nil))
     (labels ((process-string (s)
                (process-regex-parts *url-pattern* s
-                             #'(lambda (reg-starts reg-ends)
-                                 (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
-                                        (url (add-protocol-name-to-url name)))
-                                   (push (list :url url name) result)))
-                             #'(lambda (start end)
-                                 (dolist (v (markup-maths (subseq s start end)))
-                                   (push v result))))))
+                                    #'(lambda (reg-starts reg-ends)
+                                        (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
+                                               (url (add-protocol-name-to-url name)))
+                                          (push (list :url url name) result)))
+                                    #'(lambda (start end)
+                                        (dolist (v (markup-custom-1 (subseq s start end)))
+                                          (push v result))))))
       (if allow-nl
           (loop
              for line in (split-sequence:split-sequence #\Newline string)
@@ -220,7 +234,7 @@
         (etypecase element
           (string (escape-string element stream))
           (cons (let ((v (cdr element)))
-                  (ecase (car element)
+                  (case (car element)
                     (:paragraph   (render-element-with-content "p" v stream))
                     (:bold        (render-element-with-content "b" v stream))
                     (:italics     (render-element-with-content "i" v stream))
@@ -229,7 +243,12 @@
                     (:inline-math (render-inline-math v stream))
                     (:url         (render-url v stream))
                     (:code-block  (render-codeblock v stream))
-                    (:newline     (render-newline stream)))))))))
+                    (:newline     (render-newline stream))
+                    (t (if *custom-html-renderer*
+                           (funcall *custom-html-renderer*
+                                    element stream #'(lambda (content s)
+                                                       (%render-markup-to-stream content s)))
+                           (error "Attempting to render unknown tag: ~s" (car element)))))))))))
 
 (defun render-markup-to-stream (content stream)
   (%render-markup-to-stream content stream))
