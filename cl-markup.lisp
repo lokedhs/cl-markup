@@ -37,7 +37,7 @@
                         ,string ,callback ,@(if plain-string-markup-fn (list plain-string-markup-fn))))
 
 (defun markup-highlight (string)
-  (markup-from-regexp "([*_`])(.+?)\\1" string
+  (markup-from-regexp "(?<!\\w)([*_`])(.+?)\\1(?!\\w)" string
                       #'(lambda (reg-starts reg-ends)
                           (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
                             (cons (string-case:string-case (type)
