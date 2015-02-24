@@ -37,7 +37,7 @@
                         ,string ,callback ,@(if plain-string-markup-fn (list plain-string-markup-fn))))
 
 (defun markup-highlight (string)
-  (markup-from-regexp "(?<!\\w)([*_`])(.+?)\\1(?!\\w)" string
+  (markup-from-regexp "(?<!\\w)([*_])(.+?)\\1(?!\\w)" string
                       #'(lambda (reg-starts reg-ends)
                           (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
                             (cons (string-case:string-case (type)
@@ -54,7 +54,7 @@
   ;; Maths needs to be extracted before anything else, since it can
   ;; contain a mix of pretty much every other character, and we don't
   ;; want that to mess up any other highlighting.
-  (markup-from-regexp "((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\))|(?:`.+?`))" string
+  (markup-from-regexp "(?<!\\w)((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\))|(?:`.+?`))(?!\\w)" string
                       #'(lambda (reg-starts reg-ends)
                           (let* ((start (aref reg-starts 0))
                                  (end (aref reg-ends 0))
