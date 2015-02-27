@@ -50,6 +50,18 @@
       (funcall *custom-parser-2* string #'markup-highlight)
       (markup-highlight string)))
 
+(defun markup-url (s)
+  (let ((result nil))
+    (process-regex-parts *url-pattern* s
+                         #'(lambda (reg-starts reg-ends)
+                             (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
+                                    (url (add-protocol-name-to-url name)))
+                               (push (list :url url name) result)))
+                         #'(lambda (start end)
+                             (dolist (v (markup-custom-2 (subseq s start end)))
+                               (push v result))))
+    (reverse result)))
+
 (defun markup-maths (string)
   ;; Maths needs to be extracted before anything else, since it can
   ;; contain a mix of pretty much every other character, and we don't
@@ -67,7 +79,7 @@
                                    (cons :code (subseq string (+ start 1) (- end 1))))
                                   (t
                                    (error "Internal error, unexpected match. Probably broken regexp.")))))
-                      #'markup-custom-2))
+                      #'markup-url))
 
 (defun markup-custom-1 (string)
   (if *custom-parser-1*
@@ -80,25 +92,14 @@
       (format nil "http://~a" name)))
 
 (defun markup-string (string &key allow-nl)
-  (let ((result nil))
-    (labels ((process-string (s)
-               (process-regex-parts *url-pattern* s
-                                    #'(lambda (reg-starts reg-ends)
-                                        (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
-                                               (url (add-protocol-name-to-url name)))
-                                          (push (list :url url name) result)))
-                                    #'(lambda (start end)
-                                        (dolist (v (markup-custom-1 (subseq s start end)))
-                                          (push v result))))))
-      (if allow-nl
-          (loop
-             for line in (split-sequence:split-sequence #\Newline string)
-             for first = t then nil
-             unless first
-             do (push '(:newline) result)
-             do (process-string line))
-          (process-string string))
-      (reverse result))))
+  (if allow-nl
+      (loop
+         for line in (split-sequence:split-sequence #\Newline string)
+         for first = t then nil
+         unless first
+         collect '(:newline)
+         collect (markup-custom-1 line))
+      (markup-custom-1 string)))
 
 (defun markup-paragraphs-inner (string &key allow-nl)
   (loop
