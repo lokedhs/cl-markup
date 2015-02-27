@@ -97,8 +97,8 @@
          for line in (split-sequence:split-sequence #\Newline string)
          for first = t then nil
          unless first
-         collect '(:newline)
-         collect (markup-custom-1 line))
+         append '((:newline))
+         append (markup-custom-1 line))
       (markup-custom-1 string)))
 
 (defun markup-paragraphs-inner (string &key allow-nl)
