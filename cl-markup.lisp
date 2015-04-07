@@ -50,17 +50,28 @@
       (funcall *custom-parser-2* string #'markup-highlight)
       (markup-highlight string)))
 
-(defun markup-url (s)
+(defun markup-url (string)
   (let ((result nil))
-    (process-regex-parts *url-pattern* s
-                         #'(lambda (reg-starts reg-ends)
-                             (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
-                                    (url (add-protocol-name-to-url name)))
-                               (push (list :url url name) result)))
-                         #'(lambda (start end)
-                             (dolist (v (markup-custom-2 (subseq s start end)))
-                               (push v result))))
-    (reverse result)))
+    (labels ((bare-urls (s)
+               (process-regex-parts *url-pattern* s
+                                    (lambda (reg-starts reg-ends)
+                                      (let* ((name (subseq s (aref reg-starts 0) (aref reg-ends 0)))
+                                             (url (add-protocol-name-to-url name)))
+                                        (push (list :url url name) result)))
+                                    (lambda (start end)
+                                      (dolist (v (markup-custom-2 (subseq s start end)))
+                                        (push v result))))))
+      (process-regex-parts "\\[\\[([^]]+)\\](?:\\[([^]]*)\\])?\\]" string
+                           (lambda (reg-starts reg-ends)
+                             (let* ((name (subseq string (aref reg-starts 0) (aref reg-ends 0)))
+                                    (start-index (aref reg-starts 1))
+                                    (description (if start-index
+                                                     (subseq string start-index (aref reg-ends 1))
+                                                     name)))
+                               (push (list :url (add-protocol-name-to-url name) description) result)))
+                           (lambda (start end)
+                             (bare-urls (subseq string start end))))
+      (nreverse result))))
 
 (defun markup-maths (string)
   ;; Maths needs to be extracted before anything else, since it can
