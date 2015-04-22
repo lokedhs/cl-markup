@@ -61,7 +61,7 @@
                                     (lambda (start end)
                                       (dolist (v (markup-custom-2 (subseq s start end)))
                                         (push v result))))))
-      (process-regex-parts "\\[\\[([^]]+)\\](?:\\[([^]]*)\\])?\\]" string
+      (process-regex-parts "\\[\\[([^]]+)\\](?:\\[(.+?)\\])?\\]" string
                            (lambda (reg-starts reg-ends)
                              (let* ((name (subseq string (aref reg-starts 0) (aref reg-ends 0)))
                                     (start-index (aref reg-starts 1))
