@@ -98,7 +98,7 @@
       (markup-maths string)))
 
 (defun add-protocol-name-to-url (name)
-  (if (cl-ppcre:scan "^(?:https?://|mailto:)" name)
+  (if (cl-ppcre:scan "^[a-z]+:" name)
       name
       (format nil "http://~a" name)))
 
