@@ -119,7 +119,7 @@
      collect (cons :paragraph (markup-string v :allow-nl allow-nl))))
 
 (defun trim-blanks-and-newlines (s)
-  (string-trim #.(format nil " ~c~c" #\Newline #\Return) s))
+  (string-trim #.(format nil " ~c~c" #\Newline #\Return #\NO-BREAK_SPACE) s))
 
 (defmacro when-trimmed-not-empty ((sym string) &body body)
   (let ((trimmed (gensym)))
