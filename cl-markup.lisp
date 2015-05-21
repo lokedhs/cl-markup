@@ -4,6 +4,9 @@
 (defvar *custom-parser-2* nil)
 (defvar *custom-html-renderer* nil)
 
+(defvar *allow-nl* nil
+  "Dynamically bound to the value of :ALLOW-NL during the markup phase.")
+
 (defun %markup-from-regexp (regexp string callback &optional plain-string-markup-fn)
   (flet ((markup-string (s)
            (if plain-string-markup-fn
@@ -38,12 +41,12 @@
 
 (defun markup-highlight (string)
   (markup-from-regexp "(?<!\\w)([*_])(.+?)\\1(?!\\w)" string
-                      #'(lambda (reg-starts reg-ends)
-                          (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
-                            (cons (string-case:string-case (type)
-                                    ("*" :bold)
-                                    ("_" :italics))
-                                  (subseq string (aref reg-starts 1) (aref reg-ends 1)))))))
+                      (lambda (reg-starts reg-ends)
+                        (let ((type (subseq string (aref reg-starts 0) (aref reg-ends 0))))
+                          (cons (string-case:string-case (type)
+                                  ("*" :bold)
+                                  ("_" :italics))
+                                (subseq string (aref reg-starts 1) (aref reg-ends 1)))))))
 
 (defun markup-custom-2 (string)
   (if *custom-parser-2*
@@ -78,18 +81,18 @@
   ;; contain a mix of pretty much every other character, and we don't
   ;; want that to mess up any other highlighting.
   (markup-from-regexp "(?<!\\w)((?:\\$\\$.+?\\$\\$)|(?:\\\\\\(.+?\\\\\\))|(?:`.+?`))(?!\\w)" string
-                      #'(lambda (reg-starts reg-ends)
-                          (let* ((start (aref reg-starts 0))
-                                 (end (aref reg-ends 0))
-                                 (c1 (aref string start)))
-                            (cond ((eql c1 #\$)
-                                   (cons :math (subseq string (+ start 2) (- end 2))))
-                                  ((eql c1 #\\)
-                                   (cons :inline-math (subseq string (+ start 2) (- end 2))))
-                                  ((eql c1 #\`)
-                                   (cons :code (subseq string (+ start 1) (- end 1))))
-                                  (t
-                                   (error "Internal error, unexpected match. Probably broken regexp.")))))
+                      (lambda (reg-starts reg-ends)
+                        (let* ((start (aref reg-starts 0))
+                               (end (aref reg-ends 0))
+                               (c1 (aref string start)))
+                          (cond ((eql c1 #\$)
+                                 (cons :math (subseq string (+ start 2) (- end 2))))
+                                ((eql c1 #\\)
+                                 (cons :inline-math (subseq string (+ start 2) (- end 2))))
+                                ((eql c1 #\`)
+                                 (cons :code (subseq string (+ start 1) (- end 1))))
+                                (t
+                                 (error "Internal error, unexpected match. Probably broken regexp.")))))
                       #'markup-url))
 
 (defun markup-custom-1 (string)
@@ -102,8 +105,8 @@
       name
       (format nil "http://~a" name)))
 
-(defun markup-string (string &key allow-nl)
-  (if allow-nl
+(defun markup-string (string)
+  (if *allow-nl*
       (loop
          for line in (split-sequence:split-sequence #\Newline string)
          for first = t then nil
@@ -112,11 +115,11 @@
          append (markup-custom-1 line))
       (markup-custom-1 string)))
 
-(defun markup-paragraphs-inner (string &key allow-nl)
+(defun markup-paragraphs-inner (string)
   (loop
      for v in (cl-ppcre:split "\\n{2,}" string)
      when (plusp (length v))
-     collect (cons :paragraph (markup-string v :allow-nl allow-nl))))
+     collect (cons :paragraph (markup-string v))))
 
 (defun trim-blanks-and-newlines (s)
   (string-trim (coerce '(#\Space #\NO-BREAK_SPACE #\Newline #\Return) 'string) s))
@@ -170,11 +173,30 @@
                 (setq pos length))))
      finally (return (reverse result))))
 
+(defun strip-indentation-char (string)
+  (with-output-to-string (out)
+    (process-regex-parts "(?ms)^> *([^\\n]*)" string
+                         (lambda (reg-starts reg-ends)
+                           (princ (subseq string (aref reg-starts 0) (aref reg-ends 0)) out))
+                         (lambda (start end)
+                           (princ (subseq string start end) out)))))
+
+(defun markup-indent (string)
+  (markup-from-regexp "(?ms)\\n?((?:^>[^\\n]*)(?:\\n>[^\\n]*)*)\\n?" string
+                      (lambda (reg-starts reg-ends)
+                        (let ((text (strip-indentation-char (subseq string (aref reg-starts 0) (aref reg-ends 0)))))
+                          (list (cons :quote (markup-paragraphs-inner text)))))))
+
 (defun markup-paragraphs (string &key allow-nl)
+  (let ((*allow-nl* allow-nl))
+   (select-blocks string #'markup-codeblocks
+                  (lambda (s) (select-blocks s #'markup-indent #'markup-paragraphs-inner)))))
+
+(defun select-blocks (string fn next-fn)
   (loop
-     for v in (markup-codeblocks string)
+     for v in (funcall fn string)
      append (if (stringp v)
-                (markup-paragraphs-inner v :allow-nl allow-nl)
+                (funcall next-fn v)
                 v)))
 
 (defun escape-string (string stream)
@@ -256,10 +278,11 @@
                     (:url         (render-url v stream))
                     (:code-block  (render-codeblock v stream))
                     (:newline     (render-newline stream))
+                    (:quote       (render-element-with-content "blockquote" v stream))
                     (t (if *custom-html-renderer*
                            (funcall *custom-html-renderer*
-                                    element stream #'(lambda (content s)
-                                                       (%render-markup-to-stream content s)))
+                                    element stream (lambda (content s)
+                                                     (%render-markup-to-stream content s)))
                            (error "Attempting to render unknown tag: ~s" (car element)))))))))))
 
 (defun render-markup-to-stream (content stream)
