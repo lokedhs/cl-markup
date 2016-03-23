@@ -101,7 +101,8 @@
       (markup-maths string)))
 
 (defun add-protocol-name-to-url (name)
-  (if (cl-ppcre:scan "^[a-z]+:" name)
+  ;; We only want to support http and https protocols here in order to avoid the risk of XSS attacks
+  (if (cl-ppcre:scan "^https?:" name)
       name
       (format nil "http://~a" name)))
 
