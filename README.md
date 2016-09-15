@@ -1,9 +1,9 @@
 cl-markup - Simple markup parser
 ================================
 
-This library implements a markup parser that is based on the
-language defined in CommonMark. It is not, however, indented to be a
-full implementation of the language.
+This library implements a markup parser that is based on the language
+defined in CommonMark. It is not, however, intended to be a full
+implementation of the language.
 
 Supported tags
 --------------
